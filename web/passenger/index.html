@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Passenger PoC</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>body{font-family:Arial;margin:16px;} button{margin:6px 0;padding:8px}</style>
+  </head>
+  <body>
+    <h2>Passenger PoC</h2>
+    <div id="status">Initializing...</div>
+    <div>
+      <label>Vehicle ID: <input id="vehicleId" value="BUS_4711" /></label>
+    </div>
+    <div>
+      <button id="startBtn">Session starten (im Bus)</button>
+      <button id="endBtn">Session beenden (ausgestiegen)</button>
+    </div>
+    <div id="qr"></div>
+    <pre id="qrJsonText" style="background:#eef;padding:8px;white-space:pre-wrap;word-break:break-word"></pre>
+    <pre id="tokenArea" style="background:#f3f3f3;padding:8px"></pre>
+
+    <script src="passenger.js"></script>
+  </body>
+</html>

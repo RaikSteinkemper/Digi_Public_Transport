@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Inspector PoC</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>body{font-family:Arial;margin:16px;} textarea{width:100%;height:160px} button{margin-top:8px}</style>
+  </head>
+  <body>
+    <h2>Inspector (Offline check)</h2>
+    <div>
+      <label>Paste QR JSON here:</label>
+      <textarea id="qrInput" placeholder='{"token":"...","slot":123456,"sig":"..."}'></textarea>
+      <div>
+        <button id="verifyBtn">Verify Offline</button>
+      </div>
+    </div>
+    <pre id="out" style="background:#f3f3f3;padding:8px"></pre>
+    <script src="inspector.js"></script>
+  </body>
+</html>
