@@ -7,7 +7,7 @@
     "start": "node beacon.js"
   },
   "dependencies": {
-    "@abandonware/bleno": "^1.2.0"
+    "@abandonware/bleno": "*"
   },
   "engines": {
     "node": ">=18"
