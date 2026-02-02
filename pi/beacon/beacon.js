@@ -4,7 +4,7 @@
  * Läuft auf Raspberry Pi mit BlueZ und Node.js
  */
 
-const bleno = require('bleno');
+const bleno = require('@abandonware/bleno');
 const os = require('os');
 
 const BEACON_NAME = 'BUS_4711';

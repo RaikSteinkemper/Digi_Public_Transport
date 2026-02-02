@@ -1,0 +1,15 @@
+{
+  "name": "dpti-beacon",
+  "version": "0.1.0",
+  "description": "BLE beacon for ÖPNV PoC (Raspberry Pi)",
+  "main": "beacon.js",
+  "scripts": {
+    "start": "node beacon.js"
+  },
+  "dependencies": {
+    "@abandonware/bleno": "^1.2.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
