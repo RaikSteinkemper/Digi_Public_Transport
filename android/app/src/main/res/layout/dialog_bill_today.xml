@@ -1,65 +1,108 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="16dp">
+    android:orientation="vertical"
+    android:padding="24dp">
 
+    <!-- Trips List Section -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:layout_marginBottom="24dp">
 
         <TextView
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Heutige Fahrten"
-            android:textSize="20sp"
+            android:text="HEUTE FAHRTEN"
+            android:textSize="12sp"
             android:textStyle="bold"
-            android:layout_marginBottom="16dp" />
+            android:textColor="@color/secondary"
+            android:letterSpacing="0.1" />
 
-        <TextView
-            android:id="@+id/tripsListText"
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:layout_marginBottom="16dp"
-            android:background="#f0f0f0"
-            android:padding="8dp" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#cccccc"
             android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp" />
+            app:cardCornerRadius="8dp"
+            app:cardBackgroundColor="@color/surface_variant">
+
+            <TextView
+                android:id="@+id/tripsListText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textColor="@color/text_primary"
+                android:padding="12dp"
+                android:lineSpacingExtra="4sp" />
+        </androidx.cardview.widget.CardView>
+    </LinearLayout>
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/divider"
+        android:layout_marginBottom="20dp" />
+
+    <!-- Bill Summary Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="16dp">
 
         <TextView
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Rechnung"
-            android:textSize="18sp"
+            android:text="ABRECHNUNG"
+            android:textSize="12sp"
             android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
+            android:textColor="@color/primary"
+            android:letterSpacing="0.1" />
 
-        <TextView
-            android:id="@+id/billSummaryText"
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:layout_marginBottom="16dp"
-            android:background="#e8f5e9"
-            android:padding="12dp" />
+            android:layout_marginTop="8dp"
+            app:cardCornerRadius="8dp"
+            app:cardBackgroundColor="#E8F5E9"
+            app:cardElevation="1dp">
+
+            <TextView
+                android:id="@+id/billSummaryText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textColor="@color/text_primary"
+                android:padding="16dp"
+                android:lineSpacingExtra="6sp"
+                android:typeface="monospace" />
+        </androidx.cardview.widget.CardView>
+    </LinearLayout>
+
+    <!-- Savings Message -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="8dp"
+        app:cardBackgroundColor="#C8E6C9"
+        app:cardElevation="2dp"
+        android:layout_marginBottom="16dp">
 
         <TextView
             android:id="@+id/savingsText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="14sp"
-            android:textColor="#2e7d32"
+            android:textColor="@color/success"
             android:textStyle="bold"
-            android:padding="8dp"
-            android:background="#c8e6c9"
-            android:visibility="gone" />
+            android:padding="16dp"
+            android:lineSpacingExtra="4sp"
+            android:visibility="gone"
+            android:gravity="center" />
+    </androidx.cardview.widget.CardView>
 
-    </LinearLayout>
-</ScrollView>
+</LinearLayout>

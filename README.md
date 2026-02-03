@@ -1,66 +1,246 @@
-# ÖPNV Ticketless PoC (Beacon + Rotating QR)
+# Ticketless Transit - ÖPNV mit BLE Beacon
 
-This repository contains a small proof-of-concept for "ticketless ÖPNV with Beacons". It is intentionally minimal and runs locally.
+Proof-of-Concept für ticketlose Mobilität mit automatischer Fahrterfassung via BLE-Beacon.
 
-Structure:
-- `/backend` - Node.js Express backend, SQLite, keygen
-- `/web/passenger` - Passenger webapp (generate device key, register, start/end session, rotating QR)
-- `/web/inspector` - Inspector webapp (offline verify QR JSON)
-- `/pi/beacon` - Optional Pi beacon placeholder
+**Technologie**: Android-App, Node.js Backend, BLE-Scanning, ECDSA P-256 Token, QR-Codes
 
-Quick start (Linux, Node.js installed):
+---
 
-1) Install backend deps
+## Struktur
+
+- `/android` - Native Android-App (Kotlin, Material Design 3)
+- `/backend` - Node.js Express Backend mit SQLite
+- `/pi/beacon` - BLE-Beacon Service für Raspberry Pi
+- `/web` - Legacy Webapps (Passenger, Inspector)
+
+---
+
+## Quick Start - Backend
 
 ```bash
+# 1. Dependencies
 cd backend
 npm install
-```
 
-2) (Optional) generate RSA keys for backend (or use included sample keys)
-
-```bash
-npm run genkeys
-```
-
-3) Start backend
-
-```bash
+# 2. Start Backend (Port 3000)
 npm start
-# backend listens on http://localhost:3000
+
+# Backend lädt automatisch SQLite Database
 ```
 
-4) Open passenger webapp in browser:
+---
 
-Open `web/passenger/index.html` in a browser (serve with a simple static server if needed, or open file://). Example using Python http.server:
+## Android App Installation & Deployment
 
+### Installation auf Smartphone
+
+**Option 1: Via Android Studio**
+1. Android-Handy via USB anschließen
+2. Android Studio: `Run > Run 'app'` klicken
+3. App wird automatisch gebaut und installiert
+
+**Option 2: Manuell via ADB**
 ```bash
-cd web/passenger
-python3 -m http.server 8001
-# then open http://localhost:8001 in mobile browser
+cd android
+./gradlew.bat assembleDebug
+adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Passenger flow:
-- On first open the app generates an ECDSA P-256 keypair and registers the public key at `POST /device/register`.
-- Click "Session starten" to POST `/session/start` and receive a JWT session token.
-- The app signs (client-side) a per-slot payload and renders a rotating QR code JSON `{token, slot, sig}`.
+### App bleibt dauerhaft auf Handy
 
-Inspector flow:
-- Open `web/inspector` similarly via a static server and paste the QR JSON into the textarea.
-- Click Verify Offline: the inspector fetches `/.well-known/backend-public.pem` from backend (should be reachable) and performs:
-  1) JWT signature verification (RS256)
-  2) validUntil check
-  3) slot freshness check (nowSlot±1 allowed)
-  4) device signature verification (ECDSA P-256)
+✅ Nach Installation ist die App **permanent installiert**
+- Funktioniert völlig unabhängig vom Entwicklungs-PC
+- Verbindung zum PC kann getrennt werden
+- App lädt nur über Backend (IP-Adresse, siehe unten)
 
-Notes & security:
-- This PoC stores a device public key in the JWT so the inspector can verify the device signature offline. In production, you would avoid embedding long keys or change protocol accordingly.
-- The backend signs session tokens with an RSA key (RS256). The inspector uses the backend public key to verify the token offline.
-- No real payments are implemented. Business logic for fare capping is implemented in the backend (PRICE_PER_SESSION=2.00 EUR, DAILY_CAP=6.00 EUR).
+✅ Updates: Neue APK installieren (überschreibt alte Version)
 
-Next steps (optional):
-- Add Android BLE scanning to auto start/end sessions.
-- Improve inspector UX: camera-based QR scan (html5-qrcode).
-- Harden key storage and token format for production.
-# Digi_Public_Transport
-Digital Public Transport in Germany with BLE Beacon and Smartphone
+---
+
+## Backend IP-Konfiguration
+
+### Problem: Pi kommt ins andere Netzwerk
+
+Wenn der Pi mit neuer IP ins andere Netzwerk kommt:
+
+1. **IP des Pi herausfinden**:
+```bash
+# Auf dem Pi:
+hostname -I
+
+# Oder von anderem Gerät (Linux/Mac):
+arp-scan --localnet
+nmap 192.168.X.0/24
+```
+
+2. **IP in Android-App ändern** → `android/app/src/main/kotlin/com/opnv/poc/SessionManager.kt`:
+
+```kotlin
+private val BASE_URL = "http://192.168.2.146:3000"  // ← DIESE ZEILE ÄNDERN
+```
+
+Beispiel - neue IP `192.168.1.100`:
+```kotlin
+private val BASE_URL = "http://192.168.1.100:3000"
+```
+
+3. **App neu bauen und installieren**:
+```bash
+cd android
+./gradlew.bat assembleDebug
+adb install app/build/outputs/apk/debug/app-debug.apk
+```
+
+4. **Backend neu starten** (auf dem Pi):
+```bash
+sudo systemctl restart opnv-backend
+```
+
+### Empfehlung: Statische IP für Pi
+
+Um dieses Problem zu vermeiden → **statische IP** für den Pi:
+
+**Via Router (einfacher)**: MAC-Adresse des Pi an feste IP binden im Router-Admin-Panel.
+
+**Via Pi selbst**: Datei `/etc/dhcpcd.conf` bearbeiten:
+```bash
+sudo nano /etc/dhcpcd.conf
+
+# Am Ende hinzufügen:
+interface eth0
+static ip_address=192.168.2.146/24
+static routers=192.168.2.1
+static domain_name_servers=8.8.8.8 1.1.1.1
+
+# Speichern (Ctrl+O, Enter, Ctrl+X)
+
+# Pi neustarten
+sudo reboot
+```
+
+Danach: IP ändert sich nicht mehr!
+
+---
+
+## Features der App
+
+✅ **Automatische Fahrterfassung** - BLE-Beacon startet/beendet Session automatisch
+✅ **"Rechnung Heute"** - Zeigt alle heutigen Fahrten mit Kosten
+✅ **Intelligente Preisgestaltung** - 3€ pro Fahrt, max. 8€ Tagesticket
+✅ **QR-Token** - Dynamischer QR-Code mit JWT-Token
+✅ **Material Design 3** - Modernes, professionelles UI
+✅ **Debug-Tools** - Fahrten löschen, Cache leeren für Tests
+
+---
+
+## API-Endpoints (Backend)
+
+| Endpoint | Methode | Beschreibung |
+|----------|---------|-------------|
+| `/device/register` | POST | Device-Schlüssel registrieren |
+| `/session/start` | POST | Fahrt starten |
+| `/session/end` | POST | Fahrt beenden |
+| `/trips/today` | GET | Heutige Fahrten abrufen |
+| `/.well-known/backend-public.pem` | GET | Öffentlicher Schlüssel |
+| `/debug/delete-today-trips` | POST | [DEBUG] Fahrten löschen |
+
+---
+
+## Sicherheit
+
+- **JWT RS256**: Backend signiert Tokens mit RSA-Schlüssel
+- **ECDSA P-256**: Device signiert lokal Transaktionen
+- **Offline-Verify**: Inspector kann Tokens ohne Backend verifizieren
+- **Schlüsselpersistierung**: Keys lokal in SharedPreferences (Android)
+
+---
+
+## Debugging
+
+Alle Debug-Befehle für Backend und Beacon → siehe [debug.md](debug.md)
+
+Häufige Befehle:
+```bash
+# Backend Logs
+sudo journalctl -u opnv-backend -f
+
+# Backend Status
+sudo systemctl status opnv-backend
+
+# Backend neustarten
+sudo systemctl restart opnv-backend
+
+# Port 3000 prüfen
+sudo ss -tlnp | grep 3000
+```
+
+---
+
+## Kosten-Logik
+
+```
+Pro Fahrt: 3,00€
+Tagesticket: 8,00€ (Obergrenze)
+
+Beispiel:
+- 1 Fahrt = 3,00€
+- 2 Fahrten = 6,00€
+- 3 Fahrten = 8,00€ (cap, spart 1,00€!)
+- 4 Fahrten = 8,00€ (cap, spart 4,00€!)
+```
+
+Die App zeigt beim "Rechnung Heute" Button, wie viel man durch den Tagesticket-Cap spart.
+
+---
+
+## Architektur
+
+```
+User Handy (Android)
+    ↓ BLE-Scan
+Beacon (Pi)
+    ↓ API Call
+Backend (Port 3000)
+    ↓ Store
+SQLite (opnv.db)
+```
+
+**Flow**:
+1. Android-App scannt nach BLE-Beacon
+2. Beacon erkannt → `POST /session/start`
+3. App bekommt JWT-Token
+4. QR-Code mit Token anzeigen
+5. Nach Fahrt: `POST /session/end`
+6. Finale Rechnung via `GET /trips/today`
+
+---
+
+## Entwicklung & Änderungen
+
+**App neu bauen**:
+```bash
+cd android
+./gradlew.bat clean build
+```
+
+**Backend-Änderungen testen**:
+```bash
+cd backend
+npm start  # Testserver
+```
+
+**Backend als Service deployen**:
+```bash
+sudo systemctl start opnv-backend
+sudo systemctl status opnv-backend
+```
+
+---
+
+## Lizenz & Kontakt
+
+PoC-Projekt für Demonstrationszwecke.
+
+---
+
+*Zuletzt aktualisiert: February 2026*

@@ -1,4 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ÖPNV PoC</string>
+    <string name="app_name">Ticketless Transit</string>
+
+    <!-- Buttons -->
+    <string name="btn_start_session">START FAHRT</string>
+    <string name="btn_end_session">FAHRT BEENDEN</string>
+    <string name="btn_bill_today">RECHNUNG HEUTE</string>
+    <string name="btn_delete_trips">[DEBUG] Fahrten Löschen</string>
+    <string name="btn_clear_cache">[DEBUG] Cache Löschen</string>
+
+    <!-- Status Messages -->
+    <string name="status_initializing">Initialisiere...</string>
+    <string name="status_requesting_permissions">Berechtigungen werden angefordert...</string>
+    <string name="status_scanning">Suche nach Bus-Beacon...</string>
+    <string name="status_permissions_granted">Berechtigungen genehmigt. Starte Scan...</string>
+    <string name="status_permissions_denied">Berechtigungen nicht genehmigt!</string>
+    <string name="status_session_active">Fahrt aktiv</string>
+    <string name="status_session_ended">Fahrt beendet</string>
+
+    <!-- Dialog Titles -->
+    <string name="dialog_bill_title">Rechnung Heute</string>
+    <string name="dialog_delete_title">Fahrten Löschen?</string>
+    <string name="dialog_cache_title">Cache Löschen?</string>
+    <string name="dialog_success">Erfolg!</string>
+    <string name="dialog_error">Fehler</string>
+
+    <!-- Dialog Messages -->
+    <string name="dialog_delete_msg">Alle Fahrten von heute werden gelöscht.\n\nDies kann nicht rückgängig gemacht werden!</string>
+    <string name="dialog_cache_msg">Alle lokalen Daten werden gelöscht:\n• Device ID\n• Session ID/Token\n• Kryptographische Keys\n\nDie App wird danach neu gestartet.</string>
 </resources>
