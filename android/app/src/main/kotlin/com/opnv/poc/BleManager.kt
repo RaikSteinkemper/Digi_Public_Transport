@@ -9,24 +9,32 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.ParcelUuid
 import android.util.Log
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 const val BEACON_NAME = "BUS_4711"
 const val BEACON_TIMEOUT_MS = 20000L  // 20s ohne Signal = Session End
+const val MIN_RSSI = -65  // Minimum RSSI für Session-Start (ca. 1-5m Entfernung)
+const val MIN_STABLE_SIGNAL_MS = 10000L // 10s im Signal bevor Session startet
 
 /**
  * BleManager: Scannt nach BLE-Beacon mit localName = "BUS_4711"
  * und triggert Session-Start/End
  */
+@OptIn(DelicateCoroutinesApi::class)
 class BleManager(private val context: Context, private val sessionManager: SessionManager) {
     private val TAG = "BleManager"
     private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val bluetoothAdapter = bluetoothManager.adapter
     private val bleScanner = bluetoothAdapter?.bluetoothLeScanner
     private var lastBeaconTime = 0L
+    private var strongBeaconSince = 0L
     private var isScanning = false
+    private var onSessionStarted: ((String) -> Unit)? = null
+    private var onSessionEnded: (() -> Unit)? = null
 
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
@@ -34,14 +42,34 @@ class BleManager(private val context: Context, private val sessionManager: Sessi
             val deviceName = result.device.name ?: ""
             if (deviceName.contains(BEACON_NAME, ignoreCase = true)) {
                 Log.i(TAG, "Beacon found: $deviceName (rssi=${result.rssi})")
-                lastBeaconTime = System.currentTimeMillis()
+                
+                // Prüfe RSSI - nur nah genug (1-5m) erlaubt Session-Start
+                if (result.rssi >= MIN_RSSI) {
+                    lastBeaconTime = System.currentTimeMillis()
 
-                // Auto-start session wenn nicht aktiv
-                if (sessionManager.getSessionId() == null) {
-                    GlobalScope.launch(Dispatchers.Main) {
-                        Log.i(TAG, "Auto-starting session...")
-                        sessionManager.startSession(BEACON_NAME)
+                    if (strongBeaconSince == 0L) {
+                        strongBeaconSince = lastBeaconTime
+                        Log.i(TAG, "Strong beacon detected, starting stability timer...")
                     }
+
+                    val stableFor = lastBeaconTime - strongBeaconSince
+
+                    // Auto-start session wenn nicht aktiv
+                    if (sessionManager.getSessionId() == null && stableFor >= MIN_STABLE_SIGNAL_MS) {
+                        GlobalScope.launch(Dispatchers.IO) {
+                            Log.i(TAG, "Auto-starting session (RSSI: ${result.rssi} >= $MIN_RSSI, stable ${stableFor}ms)...")
+                            val sessionId = sessionManager.startSession(BEACON_NAME)
+                            if (sessionId != null) {
+                                strongBeaconSince = 0L
+                                withContext(Dispatchers.Main) {
+                                    onSessionStarted?.invoke(sessionId)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    strongBeaconSince = 0L
+                    Log.i(TAG, "Beacon too far away (RSSI: ${result.rssi} < $MIN_RSSI), ignoring")
                 }
             }
         }
@@ -76,14 +104,19 @@ class BleManager(private val context: Context, private val sessionManager: Sessi
         }
 
         // Monitor timeout (wenn 20s kein Beacon = end session)
-        GlobalScope.launch(Dispatchers.Main) {
+        GlobalScope.launch(Dispatchers.IO) {
             while (isScanning) {
                 val timeSinceLastBeacon = System.currentTimeMillis() - lastBeaconTime
                 if (lastBeaconTime > 0 && timeSinceLastBeacon > BEACON_TIMEOUT_MS && sessionManager.getSessionId() != null) {
                     Log.i(TAG, "Beacon lost, ending session...")
-                    sessionManager.endSession()
-                    lastBeaconTime = 0
-                    onStatusChanged("Beacon lost. Session ended.")
+                    val success = sessionManager.endSession()
+                    if (success) {
+                        lastBeaconTime = 0
+                        withContext(Dispatchers.Main) {
+                            onSessionEnded?.invoke()
+                            onStatusChanged("Beacon lost. Session ended.")
+                        }
+                    }
                 }
                 kotlinx.coroutines.delay(1000)
             }
@@ -95,5 +128,13 @@ class BleManager(private val context: Context, private val sessionManager: Sessi
         Log.i(TAG, "Stopping BLE scan...")
         bleScanner?.stopScan(scanCallback)
         isScanning = false
+    }
+
+    fun setSessionCallbacks(
+        onStarted: (String) -> Unit,
+        onEnded: () -> Unit
+    ) {
+        this.onSessionStarted = onStarted
+        this.onSessionEnded = onEnded
     }
 }

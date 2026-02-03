@@ -5,6 +5,7 @@ import android.util.Log
 import com.google.gson.Gson
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.UUID
@@ -16,6 +17,7 @@ data class SessionStartResponse(val token: String, val sessionId: String)
 data class SessionEndRequest(val sessionId: String)
 data class SessionEndResponse(val ok: Boolean, val totalCents: Int, val capped: Boolean)
 data class DeviceRegisterRequest(val deviceId: String, val devicePubKeyPem: String)
+data class StartSessionResult(val sessionId: String?, val error: String?)
 
 /**
  * SessionManager: Verwaltet Session-Lifecycle über REST API
@@ -23,7 +25,9 @@ data class DeviceRegisterRequest(val deviceId: String, val devicePubKeyPem: Stri
 class SessionManager(private val context: Context) {
     private val TAG = "SessionManager"
     private val gson = Gson()
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .protocols(listOf(Protocol.HTTP_1_1))
+        .build()
     private val prefs = OPNVApp.prefs
 
     fun getOrCreateDeviceId(): String {
@@ -64,6 +68,10 @@ class SessionManager(private val context: Context) {
     }
 
     fun startSession(vehicleId: String): String? {
+        return startSessionWithResult(vehicleId).sessionId
+    }
+
+    fun startSessionWithResult(vehicleId: String): StartSessionResult {
         val deviceId = getOrCreateDeviceId()
 
         // Sicherstellen, dass Device registriert ist
@@ -90,14 +98,14 @@ class SessionManager(private val context: Context) {
                     apply()
                 }
                 Log.i(TAG, "Session started: ${respObj.sessionId}")
-                respObj.sessionId
+                StartSessionResult(respObj.sessionId, null)
             } else {
                 Log.e(TAG, "Session start failed: ${response.code} - $respText")
-                null
+                StartSessionResult(null, "HTTP ${response.code} - $respText")
             }
         } catch (e: Exception) {
             Log.e(TAG, "startSession error", e)
-            null
+            StartSessionResult(null, e.message ?: "Unknown error")
         }
     }
 

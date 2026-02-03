@@ -10,12 +10,14 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -24,6 +26,7 @@ class MainActivity : AppCompatActivity() {
     private val TAG = "MainActivity"
     private lateinit var sessionManager: SessionManager
     private lateinit var bleManager: BleManager
+    private lateinit var httpClient: okhttp3.OkHttpClient
     private lateinit var statusText: TextView
     private lateinit var tokenText: TextView
     private lateinit var qrImage: ImageView
@@ -39,13 +42,18 @@ class MainActivity : AppCompatActivity() {
 
         sessionManager = SessionManager(this)
         bleManager = BleManager(this, sessionManager)
+        httpClient = okhttp3.OkHttpClient.Builder()
+            .protocols(listOf(okhttp3.Protocol.HTTP_1_1))
+            .build()
 
         // Request permissions
         requestBlePermissions()
 
         // Initialize Device
         val deviceId = sessionManager.getOrCreateDeviceId()
-        sessionManager.registerDevice(deviceId)
+        GlobalScope.launch(Dispatchers.IO) {
+            sessionManager.registerDevice(deviceId)
+        }
         updateStatus("Device: $deviceId")
 
         // Buttons
@@ -53,6 +61,12 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.endBtn).setOnClickListener { manualEndSession() }
         findViewById<Button>(R.id.billBtn).setOnClickListener { billToday() }
         findViewById<Button>(R.id.scanBtn).setOnClickListener { startBleScanning() }
+
+        // Setup callbacks for automatic session events
+        bleManager.setSessionCallbacks(
+            onStarted = { sessionId -> showSessionStartedPopup(sessionId) },
+            onEnded = { showSessionEndedPopup() }
+        )
 
         // Start scanning automatically on launch
         startBleScanning()
@@ -98,43 +112,52 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun manualStartSession() {
-        GlobalScope.launch(Dispatchers.Main) {
-            val sessionId = sessionManager.startSession("BUS_MANUAL")
-            if (sessionId != null) {
-                isSessionActive = true
-                updateStatus("Session active: $sessionId")
-                updateQrCode()
-            } else {
-                updateStatus("Failed to start session")
+        GlobalScope.launch(Dispatchers.IO) {
+            val result = sessionManager.startSessionWithResult("BUS_MANUAL")
+            withContext(Dispatchers.Main) {
+                if (result.sessionId != null) {
+                    isSessionActive = true
+                    updateStatus("Session active: ${result.sessionId}")
+                    updateQrCode()
+                } else {
+                    val err = result.error ?: "Unknown error"
+                    updateStatus("Failed to start session: $err")
+                }
             }
         }
     }
 
     private fun manualEndSession() {
-        GlobalScope.launch(Dispatchers.Main) {
-            if (sessionManager.endSession()) {
-                isSessionActive = false
-                qrImage.setImageBitmap(null)
-                tokenText.text = ""
-                updateStatus("Session ended")
-            } else {
-                updateStatus("Failed to end session")
+        GlobalScope.launch(Dispatchers.IO) {
+            val success = sessionManager.endSession()
+            withContext(Dispatchers.Main) {
+                if (success) {
+                    isSessionActive = false
+                    qrImage.setImageBitmap(null)
+                    tokenText.text = ""
+                    updateStatus("Session ended")
+                } else {
+                    updateStatus("Failed to end session")
+                }
             }
         }
     }
 
     private fun billToday() {
         val deviceId = sessionManager.getOrCreateDeviceId()
-        GlobalScope.launch(Dispatchers.Main) {
+        GlobalScope.launch(Dispatchers.IO) {
             try {
                 val url = "$API_BASE/fare/today?deviceId=$deviceId"
                 val request = okhttp3.Request.Builder().url(url).get().build()
-                val client = okhttp3.OkHttpClient()
-                val response = client.newCall(request).execute()
+                val response = httpClient.newCall(request).execute()
                 val respText = response.body?.string() ?: ""
-                updateStatus("Today's bill:\n$respText")
+                withContext(Dispatchers.Main) {
+                    updateStatus("Today's bill:\n$respText")
+                }
             } catch (e: Exception) {
-                updateStatus("Bill error: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    updateStatus("Bill error: ${e.message}")
+                }
             }
         }
     }
@@ -160,6 +183,33 @@ class MainActivity : AppCompatActivity() {
             val lines = statusText.text.toString().split("\n").take(20).joinToString("\n")
             statusText.text = lines
         }
+    }
+
+    private fun showSessionStartedPopup(sessionId: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Fahrt gestartet")
+            .setMessage("Bus-Beacon erkannt!\nIhre Fahrt wurde automatisch gestartet.\n\nSession-ID: $sessionId")
+            .setPositiveButton("OK") { dialog, _ ->
+                dialog.dismiss()
+                isSessionActive = true
+                updateQrCode()
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun showSessionEndedPopup() {
+        AlertDialog.Builder(this)
+            .setTitle("Fahrt beendet")
+            .setMessage("Bus-Beacon-Signal verloren.\nIhre Fahrt wurde automatisch beendet.\n\nDie Kosten werden abgerechnet.")
+            .setPositiveButton("OK") { dialog, _ ->
+                dialog.dismiss()
+                isSessionActive = false
+                qrImage.setImageBitmap(null)
+                tokenText.text = ""
+            }
+            .setCancelable(false)
+            .show()
     }
 
     override fun onDestroy() {
