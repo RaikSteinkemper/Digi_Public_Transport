@@ -61,6 +61,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.endBtn).setOnClickListener { manualEndSession() }
         findViewById<Button>(R.id.billBtn).setOnClickListener { billToday() }
         findViewById<Button>(R.id.scanBtn).setOnClickListener { startBleScanning() }
+        findViewById<Button>(R.id.debugDeleteBtn).setOnClickListener { debugDeleteTodayTrips() }
 
         // Setup callbacks for automatic session events
         bleManager.setSessionCallbacks(
@@ -284,6 +285,38 @@ class MainActivity : AppCompatActivity() {
             .setTitle("Rechnung Heute")
             .setView(dialogView)
             .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+            .show()
+    }
+
+    private fun debugDeleteTodayTrips() {
+        AlertDialog.Builder(this)
+            .setTitle("DEBUG: Fahrten löschen?")
+            .setMessage("Alle Fahrten von heute werden gelöscht.\n\nDies kann nicht rückgängig gemacht werden!")
+            .setPositiveButton("JA, LÖSCHEN") { dialog, _ ->
+                dialog.dismiss()
+                updateStatus("Lösche Fahrten...")
+                GlobalScope.launch(Dispatchers.IO) {
+                    val success = sessionManager.debugDeleteTodayTrips()
+                    withContext(Dispatchers.Main) {
+                        if (success) {
+                            AlertDialog.Builder(this@MainActivity)
+                                .setTitle("Erfolg")
+                                .setMessage("Alle Fahrten von heute wurden gelöscht!")
+                                .setPositiveButton("OK") { d, _ -> d.dismiss() }
+                                .show()
+                            updateStatus("DEBUG: Fahrten gelöscht!")
+                        } else {
+                            AlertDialog.Builder(this@MainActivity)
+                                .setTitle("Fehler")
+                                .setMessage("Fehler beim Löschen der Fahrten")
+                                .setPositiveButton("OK") { d, _ -> d.dismiss() }
+                                .show()
+                            updateStatus("DEBUG: Fehler beim Löschen")
+                        }
+                    }
+                }
+            }
+            .setNegativeButton("Abbrechen") { dialog, _ -> dialog.dismiss() }
             .show()
     }
 

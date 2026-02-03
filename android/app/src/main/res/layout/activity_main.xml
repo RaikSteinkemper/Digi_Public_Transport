@@ -57,6 +57,15 @@
             android:text="Bill Today" />
     </LinearLayout>
 
+    <Button
+        android:id="@+id/debugDeleteBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="[DEBUG] Delete Today's Trips"
+        android:textColor="#fff"
+        android:backgroundTint="#d32f2f"
+        android:layout_marginTop="8dp" />
+
     <ImageView
         android:id="@+id/qrImage"
         android:layout_width="320dp"

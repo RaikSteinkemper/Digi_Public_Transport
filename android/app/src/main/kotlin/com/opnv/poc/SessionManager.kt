@@ -193,4 +193,29 @@ class SessionManager(private val context: Context) {
             null
         }
     }
+
+    fun debugDeleteTodayTrips(): Boolean {
+        val deviceId = getOrCreateDeviceId()
+        return try {
+            val req = mapOf("deviceId" to deviceId)
+            val json = gson.toJson(req)
+            val body = json.toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url("$API_BASE/debug/delete-today-trips")
+                .post(body)
+                .build()
+            val response = client.newCall(request).execute()
+            val respText = response.body?.string() ?: ""
+            if (response.isSuccessful) {
+                Log.i(TAG, "DEBUG: Deleted today's trips - $respText")
+                true
+            } else {
+                Log.e(TAG, "DEBUG delete failed: ${response.code} - $respText")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "debugDeleteTodayTrips error", e)
+            false
+        }
+    }
 }

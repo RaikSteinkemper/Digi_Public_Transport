@@ -165,6 +165,25 @@ app.get('/.well-known/backend-public.pem', (req, res) => {
   res.send(PUBLIC_KEY);
 });
 
+// DEBUG: Delete all trips for today
+app.post('/debug/delete-today-trips', (req, res) => {
+  const { deviceId } = req.body;
+  if (!deviceId) return res.status(400).json({ error: 'deviceId required' });
+  
+  const dayStart = Math.floor(new Date().setUTCHours(0,0,0,0) / 1000);
+  const dayEnd = dayStart + 86400;
+  
+  db.run(
+    `DELETE FROM sessions WHERE deviceId = ? AND startTime >= ? AND startTime < ?`,
+    [deviceId, dayStart, dayEnd],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      console.log(`[DEBUG] Deleted ${this.changes} trips for device ${deviceId}`);
+      res.json({ ok: true, deletedCount: this.changes });
+    }
+  );
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log('Backend listening on', PORT);
