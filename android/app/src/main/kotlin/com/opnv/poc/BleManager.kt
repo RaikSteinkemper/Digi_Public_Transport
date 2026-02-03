@@ -42,17 +42,7 @@ class BleManager(private val context: Context, private val sessionManager: Sessi
             val deviceName = result.device.name ?: ""
             if (deviceName.contains(BEACON_NAME, ignoreCase = true)) {
                 Log.i(TAG, "Beacon found: $deviceName (rssi=${result.rssi})")
-                
-                // Prüfe RSSI - nur nah genug (1-5m) erlaubt Session-Start
-                if (result.rssi >= MIN_RSSI) {
-                    lastBeaconTime = System.currentTimeMillis()
-
-                    if (strongBeaconSince == 0L) {
-                        strongBeaconSince = lastBeaconTime
-                        Log.i(TAG, "Strong beacon detected, starting stability timer...")
-                    }
-
-                    val stableFor = lastBeaconTime - strongBeaconSince
+                lastBeaconTime = System.currentTimeMillis()
 
                     // Auto-start session wenn nicht aktiv
                     if (sessionManager.getSessionId() == null && stableFor >= MIN_STABLE_SIGNAL_MS) {
