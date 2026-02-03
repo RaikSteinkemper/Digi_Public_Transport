@@ -41,8 +41,6 @@ function startAdvertising() {
   }
 
   try {
-    // TX Power auf Low setzen für begrenzte Reichweite (~1-5m)
-    bleno.setAdvertisingInterval(100, 100); // 100ms Interval für bessere Erkennung
     bleno.startAdvertising(BEACON_NAME, [], (err) => {
       if (err) {
         logError('Failed to start advertising', err);
