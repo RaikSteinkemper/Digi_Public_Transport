@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ticketless Inspector</string>
+    <string name="status_initializing">🔄 Kamera wird initialisiert...</string>
+    <string name="status_ready">📱 Scanner bereit - QR-Code scannen</string>
+    <string name="status_permission_denied">Kamera-Berechtigung erforderlich</string>
+    <string name="status_error">Fehler: %s</string>
+    <string name="result_valid">✅ GÜLTIG</string>
+    <string name="result_invalid">❌ UNGÜLTIG</string>
+    <string name="result_device">Device: %s</string>
+    <string name="result_session">Session: %s</string>
+    <string name="result_time">Zeit: %s</string>
+    <string name="result_error">Token-Fehler:\n%s</string>
+    <string name="error_key_not_loaded">Public Key nicht geladen</string>
+</resources>

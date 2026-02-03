@@ -57,6 +57,52 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ---
 
+## Inspector App Installation (für Kontrolleure)
+
+### Setup mit Public Key
+
+Die Inspector-App (unter `/android2`) braucht den öffentlichen Schlüssel vom Backend:
+
+1. **Public Key vom Backend auslesen**:
+```bash
+# Die Datei befindet sich unter:
+cat backend/keys/public.pem
+
+# Oder über HTTP direkt vom laufenden Backend:
+curl http://192.168.2.146:3000/.well-known/backend-public.pem
+```
+
+2. **Public Key in die Inspector-App kopieren**:
+```bash
+# Linux/Mac:
+cp backend/keys/public.pem android2/app/src/main/res/raw/backend_public.pem
+
+# Windows (PowerShell):
+copy backend\keys\public.pem android2\app\src\main\res\raw\backend_public.pem
+```
+
+3. **Inspector-App bauen und installieren**:
+```bash
+cd android2
+./gradlew.bat assembleDebug
+adb install app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Public Key ändert sich NICHT beim Netzwerkwechsel!
+
+✅ **Wichtig**: Der Public Key ist an die RSA-Schlüsselpaar gebunden, NICHT an die IP/Netzwerk!
+
+Das bedeutet:
+- Pi ins andere Netzwerk → IP ändert sich ❌, Public Key bleibt gleich ✅
+- Backend neu starten → Public Key bleibt gleich ✅
+- Backend umziehen → Public Key bleibt gleich ✅
+
+**Der Public Key muss nur neu in die Inspector-App wenn**:
+- Du `rm -rf backend/keys/` machst und `npm run genkeys` neu generierst
+- → Dann musste neue `public.pem` wieder kopieren und App neu bauen
+
+---
+
 ## Backend IP-Konfiguration
 
 ### Problem: Pi kommt ins andere Netzwerk
