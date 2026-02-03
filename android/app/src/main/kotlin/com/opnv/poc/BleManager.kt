@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 
 const val BEACON_NAME = "BUS_4711"
 const val BEACON_TIMEOUT_MS = 20000L  // 20s ohne Signal = Session End
+const val RSSI_THRESHOLD = -65  // Nur Beacons näher als ~1-5m akzeptieren
 
 /**
  * BleManager: Scannt nach BLE-Beacon mit localName = "BUS_4711"
@@ -34,6 +35,13 @@ class BleManager(private val context: Context, private val sessionManager: Sessi
             val deviceName = result.device.name ?: ""
             if (deviceName.contains(BEACON_NAME, ignoreCase = true)) {
                 Log.i(TAG, "Beacon found: $deviceName (rssi=${result.rssi})")
+                
+                // Nur akzeptieren wenn Signal stark genug ist (1-5m Bereich)
+                if (result.rssi < RSSI_THRESHOLD) {
+                    Log.i(TAG, "Beacon zu weit weg (RSSI=${result.rssi} < $RSSI_THRESHOLD). Ignoriert.")
+                    return
+                }
+                
                 lastBeaconTime = System.currentTimeMillis()
 
                 // Auto-start session wenn nicht aktiv
