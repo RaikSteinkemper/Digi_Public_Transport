@@ -39,9 +39,12 @@ class BleManager(private val context: Context, private val sessionManager: Sessi
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             super.onScanResult(callbackType, result)
-            val deviceName = result.device.name ?: ""
+            val deviceName = result.device.name ?: "<unnamed>"
+            val deviceAddr = result.device.address ?: "<unknown>"
+            Log.d(TAG, "onScanResult: name=$deviceName, addr=$deviceAddr, rssi=${result.rssi}")
+            
             if (deviceName.contains(BEACON_NAME, ignoreCase = true)) {
-                Log.i(TAG, "Beacon found: $deviceName (rssi=${result.rssi})")
+                Log.i(TAG, "✓ BEACON FOUND: $deviceName (rssi=${result.rssi})")
                 lastBeaconTime = System.currentTimeMillis()
 
                 // Check if signal is strong enough
@@ -49,11 +52,17 @@ class BleManager(private val context: Context, private val sessionManager: Sessi
                     // Track how long we have a stable strong signal
                     if (strongBeaconSince == 0L) {
                         strongBeaconSince = System.currentTimeMillis()
+                        Log.i(TAG, "Started tracking stable signal strength")
                     }
                     val stableFor = System.currentTimeMillis() - strongBeaconSince
+                    Log.i(TAG, "Strong beacon signal: rssi=$result.rssi, stable=${stableFor}ms / ${MIN_STABLE_SIGNAL_MS}ms needed")
 
                     // Auto-start session wenn nicht aktiv
-                    if (sessionManager.getSessionId() == null && stableFor >= MIN_STABLE_SIGNAL_MS) {
+                    val hasActiveSession = sessionManager.getSessionId() != null
+                    Log.i(TAG, "Active session: $hasActiveSession, stableFor=$stableFor, needStable=$MIN_STABLE_SIGNAL_MS")
+                    
+                    if (!hasActiveSession && stableFor >= MIN_STABLE_SIGNAL_MS) {
+                        Log.i(TAG, "✓✓✓ TRIGGERING AUTO SESSION START ✓✓✓")
                         GlobalScope.launch(Dispatchers.IO) {
                             Log.i(TAG, "Auto-starting session (RSSI: ${result.rssi} >= $MIN_RSSI, stable ${stableFor}ms)...")
                             val sessionId = sessionManager.startSession(BEACON_NAME)
@@ -62,8 +71,12 @@ class BleManager(private val context: Context, private val sessionManager: Sessi
                                 withContext(Dispatchers.Main) {
                                     onSessionStarted?.invoke(sessionId)
                                 }
+                            } else {
+                                Log.e(TAG, "Session start returned null!")
                             }
                         }
+                    } else {
+                        Log.i(TAG, "Not starting session: hasActive=$hasActiveSession, stable=${stableFor >= MIN_STABLE_SIGNAL_MS}")
                     }
                 } else {
                     strongBeaconSince = 0L
@@ -74,31 +87,66 @@ class BleManager(private val context: Context, private val sessionManager: Sessi
 
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
-            Log.e(TAG, "Scan failed: $errorCode")
+            Log.e(TAG, "Scan FAILED with error code: $errorCode")
+            when (errorCode) {
+                ScanCallback.SCAN_FAILED_ALREADY_STARTED -> Log.e(TAG, "  -> Scan already started")
+                ScanCallback.SCAN_FAILED_APPLICATION_REGISTRATION_FAILED -> Log.e(TAG, "  -> App registration failed")
+                ScanCallback.SCAN_FAILED_INTERNAL_ERROR -> Log.e(TAG, "  -> Internal error")
+                ScanCallback.SCAN_FAILED_FEATURE_UNSUPPORTED -> Log.e(TAG, "  -> Feature unsupported")
+                else -> Log.e(TAG, "  -> Unknown error")
+            }
         }
     }
 
     fun startScanning(onStatusChanged: (String) -> Unit) {
-        if (isScanning) return
+        if (isScanning) {
+            Log.i(TAG, "Already scanning, ignoring duplicate request")
+            return
+        }
 
         Log.i(TAG, "Starting BLE scan...")
+        Log.i(TAG, "Bluetooth Adapter: ${bluetoothAdapter?.isEnabled}")
+        Log.i(TAG, "BLE Scanner available: ${bleScanner != null}")
+        
+        if (bluetoothAdapter == null) {
+            Log.e(TAG, "ERROR: Bluetooth Adapter is null")
+            onStatusChanged("ERROR: Bluetooth nicht unterstützt")
+            return
+        }
+        
+        if (!bluetoothAdapter.isEnabled) {
+            Log.e(TAG, "ERROR: Bluetooth is disabled")
+            onStatusChanged("ERROR: Bluetooth ist ausgeschaltet")
+            return
+        }
+        
+        if (bleScanner == null) {
+            Log.e(TAG, "ERROR: BLE Scanner is null")
+            onStatusChanged("ERROR: BLE Scanner nicht verfügbar")
+            return
+        }
+
         isScanning = true
         onStatusChanged("Scanning für $BEACON_NAME...")
+        Log.i(TAG, "BLE Scan Status: isScanning=$isScanning")
 
         val scanSettings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
             .build()
 
         try {
+            Log.i(TAG, "Calling bleScanner.startScan()...")
             bleScanner?.startScan(
                 listOf(ScanFilter.Builder().setDeviceName(BEACON_NAME).build()),
                 scanSettings,
                 scanCallback
             )
+            Log.i(TAG, "bleScanner.startScan() called successfully")
         } catch (e: Exception) {
-            Log.e(TAG, "startScanning error (may need location permission)", e)
-            onStatusChanged("BLE Scan Error (check permissions)")
+            Log.e(TAG, "startScanning EXCEPTION: ${e.message}", e)
+            onStatusChanged("BLE Scan Error: ${e.message}")
             isScanning = false
+            return
         }
 
         // Monitor timeout (wenn 20s kein Beacon = end session)

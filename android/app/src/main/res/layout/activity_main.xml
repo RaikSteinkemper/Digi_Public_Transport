@@ -43,13 +43,6 @@
         android:layout_marginTop="8dp">
 
         <Button
-            android:id="@+id/scanBtn"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Scan BLE" />
-
-        <Button
             android:id="@+id/billBtn"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -65,6 +58,15 @@
         android:textColor="#fff"
         android:backgroundTint="#d32f2f"
         android:layout_marginTop="8dp" />
+
+    <Button
+        android:id="@+id/debugClearPrefsBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="[DEBUG] Clear Local Cache"
+        android:textColor="#fff"
+        android:backgroundTint="#1976d2"
+        android:layout_marginTop="4dp" />
 
     <ImageView
         android:id="@+id/qrImage"

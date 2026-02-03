@@ -46,22 +46,19 @@ class MainActivity : AppCompatActivity() {
             .protocols(listOf(okhttp3.Protocol.HTTP_1_1))
             .build()
 
-        // Request permissions
-        requestBlePermissions()
-
         // Initialize Device
         val deviceId = sessionManager.getOrCreateDeviceId()
         GlobalScope.launch(Dispatchers.IO) {
             sessionManager.registerDevice(deviceId)
         }
-        updateStatus("Device: $deviceId")
+        updateStatus("Device: $deviceId\nBerechtigungen werden angefordert...")
 
         // Buttons
         findViewById<Button>(R.id.startBtn).setOnClickListener { manualStartSession() }
         findViewById<Button>(R.id.endBtn).setOnClickListener { manualEndSession() }
         findViewById<Button>(R.id.billBtn).setOnClickListener { billToday() }
-        findViewById<Button>(R.id.scanBtn).setOnClickListener { startBleScanning() }
         findViewById<Button>(R.id.debugDeleteBtn).setOnClickListener { debugDeleteTodayTrips() }
+        findViewById<Button>(R.id.debugClearPrefsBtn).setOnClickListener { debugClearPreferences() }
 
         // Setup callbacks for automatic session events
         bleManager.setSessionCallbacks(
@@ -69,8 +66,8 @@ class MainActivity : AppCompatActivity() {
             onEnded = { showSessionEndedPopup() }
         )
 
-        // Start scanning automatically on launch
-        startBleScanning()
+        // Request permissions FIRST, then start scanning when granted
+        requestBlePermissions()
 
         // QR refresh loop
         GlobalScope.launch(Dispatchers.Main) {
@@ -102,7 +99,33 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (toRequest.isNotEmpty()) {
+            android.util.Log.i(TAG, "Requesting ${toRequest.size} permissions: $toRequest")
             ActivityCompat.requestPermissions(this, toRequest.toTypedArray(), 100)
+        } else {
+            // All permissions already granted, start scanning immediately
+            android.util.Log.i(TAG, "All permissions already granted, starting scan immediately")
+            startBleScanning()
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        android.util.Log.i(TAG, "onRequestPermissionsResult: requestCode=$requestCode")
+        if (requestCode == 100) {
+            val allGranted = grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+            android.util.Log.i(TAG, "Permissions granted: $allGranted")
+            for (i in permissions.indices) {
+                android.util.Log.i(TAG, "  ${permissions[i]}: ${grantResults[i] == PackageManager.PERMISSION_GRANTED}")
+            }
+            
+            if (allGranted) {
+                updateStatus("Alle Berechtigungen genehmigt. Starte BLE-Scan...")
+                android.util.Log.i(TAG, "Calling startBleScanning()...")
+                startBleScanning()
+            } else {
+                updateStatus("Fehler: BLE-Berechtigungen nicht genehmigt")
+                android.util.Log.e(TAG, "Some permissions denied!")
+            }
         }
     }
 
@@ -315,6 +338,36 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
+            }
+            .setNegativeButton("Abbrechen") { dialog, _ -> dialog.dismiss() }
+            .show()
+    }
+
+    private fun debugClearPreferences() {
+        AlertDialog.Builder(this)
+            .setTitle("DEBUG: Cache löschen?")
+            .setMessage("Alle lokalen Daten werden gelöscht:\n- Device ID\n- Session ID/Token\n- Kryptographische Keys\n\nDie App wird danach neu gestartet.")
+            .setPositiveButton("JA, LÖSCHEN") { dialog, _ ->
+                dialog.dismiss()
+                updateStatus("Lösche lokale Daten...")
+                
+                val prefs = OPNVApp.prefs
+                prefs.edit().clear().apply()
+                
+                android.util.Log.i(TAG, "DEBUG: Cleared all preferences")
+                
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Erfolg")
+                    .setMessage("Cache geleert!\n\nBitte starten Sie die App neu.")
+                    .setPositiveButton("OK") { d, _ ->
+                        d.dismiss()
+                        // Restart app
+                        val intent = intent
+                        finish()
+                        startActivity(intent)
+                    }
+                    .setCancelable(false)
+                    .show()
             }
             .setNegativeButton("Abbrechen") { dialog, _ -> dialog.dismiss() }
             .show()
