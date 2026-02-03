@@ -6,8 +6,8 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { db, init } = require('./db');
 
-const PRICE_PER_SESSION = 200; // cents
-const DAILY_CAP = 600; // cents
+const PRICE_PER_SESSION = 300; // cents (3.00 EUR per trip)
+const DAILY_CAP = 800; // cents (8.00 EUR day ticket)
 
 const app = express();
 app.use(bodyParser.json());
@@ -118,6 +118,43 @@ app.get('/fare/today', (req, res) => {
       let capped = false;
       if (total > DAILY_CAP) { total = DAILY_CAP; capped = true; }
       res.json({ totalCents: total, capped });
+    }
+  );
+});
+
+// Get detailed trips for today
+app.get('/trips/today', (req, res) => {
+  const { deviceId } = req.query;
+  if (!deviceId) return res.status(400).json({ error: 'deviceId required' });
+  const dayStart = Math.floor(new Date().setUTCHours(0,0,0,0) / 1000);
+  const dayEnd = dayStart + 86400;
+  db.all(
+    `SELECT sessionId, vehicleId, startTime, endTime FROM sessions WHERE deviceId = ? AND endTime IS NOT NULL AND endTime >= ? AND endTime < ? ORDER BY startTime ASC`,
+    [deviceId, dayStart, dayEnd],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      const trips = rows || [];
+      const tripCount = trips.length;
+      let totalCents = tripCount * PRICE_PER_SESSION;
+      let capped = false;
+      if (totalCents > DAILY_CAP) { 
+        totalCents = DAILY_CAP; 
+        capped = true; 
+      }
+      res.json({ 
+        trips: trips.map(t => ({
+          sessionId: t.sessionId,
+          vehicleId: t.vehicleId,
+          startTime: t.startTime,
+          endTime: t.endTime
+        })),
+        tripCount,
+        pricePerTrip: PRICE_PER_SESSION,
+        subtotalCents: tripCount * PRICE_PER_SESSION,
+        totalCents,
+        capped,
+        dayCap: DAILY_CAP
+      });
     }
   );
 });

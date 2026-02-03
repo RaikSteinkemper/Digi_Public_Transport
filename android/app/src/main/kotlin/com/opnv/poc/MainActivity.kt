@@ -144,18 +144,35 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun billToday() {
-        val deviceId = sessionManager.getOrCreateDeviceId()
+        updateStatus("Lade Rechnung...")
         GlobalScope.launch(Dispatchers.IO) {
             try {
-                val url = "$API_BASE/fare/today?deviceId=$deviceId"
-                val request = okhttp3.Request.Builder().url(url).get().build()
-                val response = httpClient.newCall(request).execute()
-                val respText = response.body?.string() ?: ""
+                android.util.Log.i(TAG, "billToday: Fetching bill data...")
+                val billData = sessionManager.getTodayBill()
+                android.util.Log.i(TAG, "billToday: Bill data = $billData")
                 withContext(Dispatchers.Main) {
-                    updateStatus("Today's bill:\n$respText")
+                    if (billData != null) {
+                        android.util.Log.i(TAG, "billToday: Showing dialog")
+                        showBillDialog(billData)
+                        updateStatus("Rechnung geladen")
+                    } else {
+                        android.util.Log.e(TAG, "billToday: Bill data is null")
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("Fehler")
+                            .setMessage("Fehler beim Abrufen der Rechnung.\n\nBitte prüfen Sie:\n- Backend läuft auf $API_BASE\n- Netzwerkverbindung ist aktiv\n- Firewall erlaubt Verbindung")
+                            .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+                            .show()
+                        updateStatus("Fehler beim Abrufen der Rechnung - siehe Logs")
+                    }
                 }
             } catch (e: Exception) {
+                android.util.Log.e(TAG, "billToday: Exception", e)
                 withContext(Dispatchers.Main) {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("Fehler")
+                        .setMessage("Fehler: ${e.message}\n\nBackend: $API_BASE")
+                        .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+                        .show()
                     updateStatus("Bill error: ${e.message}")
                 }
             }
@@ -209,6 +226,64 @@ class MainActivity : AppCompatActivity() {
                 tokenText.text = ""
             }
             .setCancelable(false)
+            .show()
+    }
+
+    private fun showBillDialog(billData: TodayBillResponse) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_bill_today, null)
+        
+        val tripsListText = dialogView.findViewById<TextView>(R.id.tripsListText)
+        val billSummaryText = dialogView.findViewById<TextView>(R.id.billSummaryText)
+        val savingsText = dialogView.findViewById<TextView>(R.id.savingsText)
+
+        // Format trips list
+        val tripsText = if (billData.trips.isEmpty()) {
+            "Keine Fahrten heute"
+        } else {
+            buildString {
+                billData.trips.forEachIndexed { index, trip ->
+                    val startDate = java.util.Date(trip.startTime * 1000)
+                    val endDate = java.util.Date(trip.endTime * 1000)
+                    val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+                    
+                    append("${index + 1}. Fahrt mit ${trip.vehicleId}\n")
+                    append("   Start: ${timeFormat.format(startDate)}\n")
+                    append("   Ende:  ${timeFormat.format(endDate)}\n")
+                    append("   Preis: 3,00 €\n")
+                    if (index < billData.trips.size - 1) append("\n")
+                }
+            }
+        }
+        tripsListText.text = tripsText
+
+        // Format bill summary
+        val billSummary = buildString {
+            append("Anzahl Fahrten: ${billData.tripCount}\n")
+            append("Preis pro Fahrt: ${billData.pricePerTrip / 100.0} €\n")
+            append("Zwischensumme: ${billData.subtotalCents / 100.0} €\n")
+            append("\n")
+            if (billData.capped) {
+                append("Tagesticket-Cap greift!\n")
+                append("Gesamt: ${billData.totalCents / 100.0} € (statt ${billData.subtotalCents / 100.0} €)\n")
+            } else {
+                append("Gesamt: ${billData.totalCents / 100.0} €\n")
+            }
+        }
+        billSummaryText.text = billSummary
+
+        // Show savings if applicable
+        if (billData.capped) {
+            val savings = (billData.subtotalCents - billData.totalCents) / 100.0
+            savingsText.text = "✓ Sie sparen ${savings} € durch das Tagesticket!\nDas lohnt sich für Sie!"
+            savingsText.visibility = android.view.View.VISIBLE
+        } else {
+            savingsText.visibility = android.view.View.GONE
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Rechnung Heute")
+            .setView(dialogView)
+            .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
             .show()
     }
 

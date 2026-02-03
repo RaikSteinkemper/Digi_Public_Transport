@@ -18,6 +18,16 @@ data class SessionEndRequest(val sessionId: String)
 data class SessionEndResponse(val ok: Boolean, val totalCents: Int, val capped: Boolean)
 data class DeviceRegisterRequest(val deviceId: String, val devicePubKeyPem: String)
 data class StartSessionResult(val sessionId: String?, val error: String?)
+data class Trip(val sessionId: String, val vehicleId: String, val startTime: Long, val endTime: Long)
+data class TodayBillResponse(
+    val trips: List<Trip>,
+    val tripCount: Int,
+    val pricePerTrip: Int,
+    val subtotalCents: Int,
+    val totalCents: Int,
+    val capped: Boolean,
+    val dayCap: Int
+)
 
 /**
  * SessionManager: Verwaltet Session-Lifecycle über REST API
@@ -159,5 +169,28 @@ class SessionManager(private val context: Context) {
             "sig" to sig
         )
         return gson.toJson(qrData)
+    }
+
+    fun getTodayBill(): TodayBillResponse? {
+        val deviceId = getOrCreateDeviceId()
+        return try {
+            val url = "$API_BASE/trips/today?deviceId=$deviceId"
+            Log.i(TAG, "Fetching today's bill from: $url")
+            val request = Request.Builder().url(url).get().build()
+            val response = client.newCall(request).execute()
+            val respText = response.body?.string() ?: ""
+            Log.i(TAG, "Response code: ${response.code}, body length: ${respText.length}")
+            if (response.isSuccessful) {
+                val result = gson.fromJson(respText, TodayBillResponse::class.java)
+                Log.i(TAG, "Parsed bill response: ${result.tripCount} trips, total: ${result.totalCents} cents")
+                result
+            } else {
+                Log.e(TAG, "getTodayBill failed: ${response.code} - $respText")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "getTodayBill error: ${e.message}", e)
+            null
+        }
     }
 }

@@ -44,6 +44,14 @@ class BleManager(private val context: Context, private val sessionManager: Sessi
                 Log.i(TAG, "Beacon found: $deviceName (rssi=${result.rssi})")
                 lastBeaconTime = System.currentTimeMillis()
 
+                // Check if signal is strong enough
+                if (result.rssi >= MIN_RSSI) {
+                    // Track how long we have a stable strong signal
+                    if (strongBeaconSince == 0L) {
+                        strongBeaconSince = System.currentTimeMillis()
+                    }
+                    val stableFor = System.currentTimeMillis() - strongBeaconSince
+
                     // Auto-start session wenn nicht aktiv
                     if (sessionManager.getSessionId() == null && stableFor >= MIN_STABLE_SIGNAL_MS) {
                         GlobalScope.launch(Dispatchers.IO) {
