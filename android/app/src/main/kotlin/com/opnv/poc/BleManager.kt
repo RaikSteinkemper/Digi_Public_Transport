@@ -45,10 +45,12 @@ class BleManager(private val context: Context, private val sessionManager: Sessi
             
             if (deviceName.contains(BEACON_NAME, ignoreCase = true)) {
                 Log.i(TAG, "✓ BEACON FOUND: $deviceName (rssi=${result.rssi})")
-                lastBeaconTime = System.currentTimeMillis()
 
                 // Check if signal is strong enough
                 if (result.rssi >= MIN_RSSI) {
+                    // Signal stark genug - Zeit aktualisieren für Timeout-Prüfung
+                    lastBeaconTime = System.currentTimeMillis()
+                    
                     // Track how long we have a stable strong signal
                     if (strongBeaconSince == 0L) {
                         strongBeaconSince = System.currentTimeMillis()
@@ -79,8 +81,10 @@ class BleManager(private val context: Context, private val sessionManager: Sessi
                         Log.i(TAG, "Not starting session: hasActive=$hasActiveSession, stable=${stableFor >= MIN_STABLE_SIGNAL_MS}")
                     }
                 } else {
+                    // Signal zu schwach (RSSI >= MIN_RSSI nicht erfüllt) - nicht als "noch vorhanden" zählen
                     strongBeaconSince = 0L
-                    Log.i(TAG, "Beacon too far away (RSSI: ${result.rssi} < $MIN_RSSI), ignoring")
+                    Log.i(TAG, "Beacon too far away (RSSI: ${result.rssi} < $MIN_RSSI), ignoring for session control")
+                    // WICHTIG: lastBeaconTime wird NICHT aktualisiert, damit Timeout läuft
                 }
             }
         }
