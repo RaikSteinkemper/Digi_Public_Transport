@@ -290,3 +290,23 @@ PoC-Projekt für Demonstrationszwecke.
 ---
 
 *Zuletzt aktualisiert: February 2026*
+
+## PI im Netzwerk finden
+
+arp -a
+arp -a | findstr 10.209.75.    // oder anderes Subnetz
+
+## Mit bestimmtem Netzwerk verbinde
+
+sudo nmcli connection up "SSID"
+
+
+## WLAN hinzufügen
+
+sudo nmcli con add type wifi ifname wlan0 con-name "Railen_Static" ssid "Railen_PC" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "Railen123!" ip4 192.168.137.10/24 gw4 192.168.137.1
+
+Und wichtiger machen:
+
+## Pi IP herausfinden
+
+hostname -I

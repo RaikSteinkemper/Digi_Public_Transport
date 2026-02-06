@@ -10,7 +10,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.UUID
 
-const val API_BASE = "http://192.168.2.146:3000"  // <- ändere IP hier
+const val API_BASE = "http://10.209.75.25:3000"  // <- ändere IP hier http://192.168.2.146:3000
 
 data class SessionStartRequest(val deviceId: String, val vehicleId: String)
 data class SessionStartResponse(val token: String, val sessionId: String)
