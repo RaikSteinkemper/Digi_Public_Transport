@@ -3,5 +3,6 @@
     <!-- Allow cleartext HTTP to local backend for development -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">192.168.2.146</domain>
+        <domain includeSubdomains="true">10.209.75.25</domain>
     </domain-config>
 </network-security-config>

@@ -280,24 +280,32 @@ class MainActivity : AppCompatActivity() {
         }
         tripsListText.text = tripsText
 
+        val dayCap = billData.dayCap
+        val shouldCap = billData.capped || (dayCap > 0 && billData.subtotalCents > dayCap)
+        val displayTotalCents = if (shouldCap && dayCap > 0) {
+            minOf(billData.totalCents, dayCap)
+        } else {
+            billData.totalCents
+        }
+
         // Format bill summary
         val billSummary = buildString {
             append("Anzahl Fahrten: ${billData.tripCount}\n")
             append("Preis pro Fahrt: ${billData.pricePerTrip / 100.0} €\n")
             append("Zwischensumme: ${billData.subtotalCents / 100.0} €\n")
             append("\n")
-            if (billData.capped) {
+            if (shouldCap) {
                 append("Tagesticket-Cap greift!\n")
-                append("Gesamt: ${billData.totalCents / 100.0} € (statt ${billData.subtotalCents / 100.0} €)\n")
+                append("Gesamt: ${displayTotalCents / 100.0} € (statt ${billData.subtotalCents / 100.0} €)\n")
             } else {
-                append("Gesamt: ${billData.totalCents / 100.0} €\n")
+                append("Gesamt: ${displayTotalCents / 100.0} €\n")
             }
         }
         billSummaryText.text = billSummary
 
         // Show savings if applicable
-        if (billData.capped) {
-            val savings = (billData.subtotalCents - billData.totalCents) / 100.0
+        if (shouldCap) {
+            val savings = (billData.subtotalCents - displayTotalCents) / 100.0
             savingsText.text = "✓ Sie sparen ${savings} € durch das Tagesticket!\nDas lohnt sich für Sie!"
             savingsText.visibility = android.view.View.VISIBLE
         } else {
